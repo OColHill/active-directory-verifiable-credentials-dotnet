@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using WoodgroveHelpdesk.Helpers;
 using WoodgroveHelpdesk.Models;
+using Azure.Identity;
+using Microsoft.Graph;
 
 namespace WoodgroveHelpdesk.Controllers
 {
@@ -21,6 +23,8 @@ namespace WoodgroveHelpdesk.Controllers
         private IHttpClientFactory _httpClientFactory;
         private string _apiKey;
         private IConfiguration _configuration;
+        private readonly GraphServiceClient _graphClient;
+
         public HomeController(IConfiguration configuration, IMemoryCache memoryCache, ILogger<HomeController> log, IHttpClientFactory httpClientFactory)
         {
             _configuration = configuration;
@@ -28,7 +32,12 @@ namespace WoodgroveHelpdesk.Controllers
             _log = log;
             _httpClientFactory = httpClientFactory;
             _apiKey = System.Environment.GetEnvironmentVariable("API-KEY");
+
+            // Uses the App Service's system-assigned managed identity — no client secret,
+            // same identity that already holds Sites.Selected on the FaceCheckLinks site.
+            _graphClient = new GraphServiceClient(new ManagedIdentityCredential());
         }
+
         //some helper functions
         protected string GetRequestHostName() {
             string scheme = "https";// : this.Request.Scheme;
@@ -44,6 +53,73 @@ namespace WoodgroveHelpdesk.Controllers
         public IActionResult Index() {
             return View();
         }
+
+        [AllowAnonymous]
+        [HttpGet( "/verify/{token}" )]
+        public async Task<IActionResult> Verify( string token )
+        {
+            if (string.IsNullOrWhiteSpace( token )) {
+                return View( "LinkInvalid" );
+            }
+
+            string siteId = _configuration["FaceCheckLinks:SiteId"];
+            string listId = _configuration["FaceCheckLinks:ListId"];
+
+            if (string.IsNullOrWhiteSpace( siteId ) || string.IsNullOrWhiteSpace( listId )) {
+                _log.LogError( "FaceCheckLinks:SiteId / FaceCheckLinks:ListId app settings are not configured." );
+                return View( "LinkInvalid" );
+            }
+
+            // Escape any single quotes so a malformed token can't break the OData filter.
+            string safeToken = token.Replace( "'", "''" );
+
+            try
+            {
+                var items = await _graphClient.Sites[siteId].Lists[listId].Items.GetAsync( requestConfiguration =>
+                {
+                    requestConfiguration.QueryParameters.Filter = $"fields/Title eq '{safeToken}'";
+                    requestConfiguration.QueryParameters.Expand = new[] { "fields" };
+                    // FaceCheckLinks is small, but this column likely isn't indexed —
+                    // this header stops Graph refusing an unindexed filter outright.
+                    requestConfiguration.Headers.Add( "Prefer", "HonorNonIndexedQueriesWarningMayFailRandomly" );
+                } );
+
+                var match = items?.Value?.FirstOrDefault();
+                if (match?.Fields?.AdditionalData == null) {
+                    _log.LogTrace( $"No FaceCheckLinks item found for token." );
+                    return View( "LinkInvalid" );
+                }
+
+                var fields = match.Fields.AdditionalData;
+
+                bool used = fields.TryGetValue( "Used", out var usedVal ) && usedVal is bool b && b;
+                if (used) {
+                    _log.LogTrace( "Face Check link token already used." );
+                    return View( "LinkInvalid" );
+                }
+
+                DateTime? expiresAt = null;
+                if (fields.TryGetValue( "ExpiresAt", out var expiresVal ) && expiresVal != null
+                        && DateTime.TryParse( expiresVal.ToString(), out var parsed )) {
+                    expiresAt = parsed;
+                }
+                if (expiresAt == null || expiresAt < DateTime.UtcNow) {
+                    _log.LogTrace( "Face Check link token missing/invalid ExpiresAt or expired." );
+                    return View( "LinkInvalid" );
+                }
+
+                // Valid, unused, not expired — let the caller straight into the normal flow.
+                // Deliberately not flagging Used here: the runbook allows one retry, and it's
+                // the Verified ID presentation flow itself that actually completes the check.
+                return View( "Index" );
+            }
+            catch (Exception ex)
+            {
+                _log.LogError( "Exception validating Face Check link token: " + ex.Message );
+                return View( "LinkInvalid" );
+            }
+        }
+
         [AllowAnonymous]
         [ResponseCache( Duration = 0, Location = ResponseCacheLocation.None, NoStore = true )]
         public IActionResult Error() {
