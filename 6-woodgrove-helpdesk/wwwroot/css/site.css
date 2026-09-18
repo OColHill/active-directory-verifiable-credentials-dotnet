@@ -23,7 +23,7 @@ body {
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     /*background-color: white;*/
-    background-color: #dbeadd;
+    background-color: #F5F1ED;
 }
 
 #wrap {
@@ -36,7 +36,7 @@ a:hover {
 }
 
 .button {
-    background-color: #3B2E58;
+    background-color: #0B3041;
     border: none;
     color: white;
     padding: 10px 20px;
@@ -52,11 +52,11 @@ a:hover {
     background-color: #cccccc;
 }
 .dark-purple-fill {
-    background-color: #3B2E58;
+    background-color: #0B3041;
 }
 
 .light-purple-fill {
-    background-color: #8661c5;
+    background-color: #AF6F4D;
 }
 
 .icon-small {
@@ -116,12 +116,12 @@ a:hover {
 }
 
 .green {
-    color: #228B22;
+    color: #1E7B45;
 }
 
 .bg-black {
-    color:white;
-    background-color: black;
+    color: white;
+    background-color: #0B3041 !important;
 }
 #message {
     /*font-size: calc(1rem + 1vw);*/
@@ -129,7 +129,7 @@ a:hover {
 }
 
 .banner {
-    background: linear-gradient( rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5) ), url(/banner_image01.png);
+    background: linear-gradient( rgba(11, 48, 65, 0.35), rgba(11, 48, 65, 0.35) ), url(/banner_image01.png);
     background-position: center top;
     background-size: cover;
     height: 85px;
@@ -150,7 +150,7 @@ a:hover {
 }
 
 .waitingForAuthApp {
-    background-color: #3B2E58;
+    background-color: #0B3041;
     border: none;
     color: white;
     padding: 10px 20px;
@@ -266,4 +266,41 @@ table {
 @keyframes marquee {
     0%   { transform: translate(0, 0); }
     100% { transform: translate(-100%, 0); }
+}
+
+/* Hill overrides: beat Bootstrap utilities and the compiled scoped bundle */
+nav.bg-black, .navbar.bg-black {
+    background-color: #0B3041 !important;
+}
+.footer, footer.footer {
+    background-color: #0B3041 !important;
+}
+
+
+/* Hill v3: clean solid banner (no image, no stripes), copper rule under header */
+.banner {
+    background: #0B3041 !important;
+    border-bottom: 4px solid #AF6F4D;
+    height: 42px !important;
+}
+
+/* Hill v3: centre the three step cards under the heading */
+.verification-card {
+    float: none !important;
+    display: inline-flex !important;
+    vertical-align: top;
+    margin: 0 12px 20px !important;
+}
+
+/* Hill v3: heading polish */
+main h1 {
+    color: #0B3041;
+    font-weight: 700;
+    margin: 34px 0 18px;
+}
+
+
+/* Hill: hide the sample's demo-site marquee */
+.marquee {
+    display: none !important;
 }

@@ -50,9 +50,10 @@ namespace WoodgroveHelpdesk.Controllers
         }
 
         [AllowAnonymous]
-        public IActionResult Index() {
-            return View();
-        }
+public IActionResult Index() {
+    // No token = no direct access. The real flow only starts from a per-ticket /verify/{token} link.
+    return View( "LinkInvalid" );
+}
 
         [AllowAnonymous]
         [HttpGet( "/verify/{token}" )]
